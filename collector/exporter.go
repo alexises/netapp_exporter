@@ -4,6 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/perf"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
+	"github.com/jenningsloy318/netapp_exporter/config"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
@@ -18,14 +22,10 @@ const (
 // Metric descriptors.
 var (
 	scrapeDurationDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, exporter, "collector_duration_seconds"),
+		prometheus.BuildFQName(variables.Namespace, exporter, "collector_duration_seconds"),
 		"Collector time duration.",
 		[]string{"collector"}, nil,
 	)
-
-	BaseLabelNames = []string{"group", "cluster"}
-
-	BaseLabelValues = make([]string, 2, 2)
 )
 
 // Exporter collects NetAPP metrics. It implements prometheus.Collector.
@@ -36,48 +36,50 @@ type Exporter struct {
 	totalScrapes prometheus.Counter
 	scrapeErrors *prometheus.CounterVec
 	netappUp     prometheus.Gauge
+	deviceConfig *config.DeviceConfig
 }
 
 var scrapers = []Scraper{
-	ScrapeSystem{},
-	ScrapeAggr{},
-	ScrapeVserver{},
-	ScrapeVolume{},
-	ScrapeLun{},
-	ScrapeSnapshot{},
-	ScrapePerf{},
-	ScrapeStorageDisk{},
+	metrics.ScrapeSystem{},
+	metrics.ScrapeAggr{},
+	metrics.ScrapeVserver{},
+	metrics.ScrapeVolume{},
+	metrics.ScrapeLun{},
+	metrics.ScrapeSnapshot{},
+	metrics.ScrapeStorageDisk{},
 }
 
-func New(Groupname string, netappClient *netapp.Client) *Exporter {
-	BaseLabelValues[0] = Groupname
+func New(Groupname string, netappClient *netapp.Client, deviceConfig *config.DeviceConfig) *Exporter {
+	variables.BaseLabelValues[0] = Groupname
 	return &Exporter{
 		netappClient: netappClient,
-		scrapers:     scrapers,
+		scrapers:     append(scrapers, perf.New(deviceConfig.PerfData)),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: variables.Namespace,
 			Subsystem: exporter,
 			Name:      "scrapes_total",
 			Help:      "Total number of times NetAPP was scraped for metrics.",
 		}),
 		scrapeErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: variables.Namespace,
 			Subsystem: exporter,
 			Name:      "scrape_errors_total",
 			Help:      "Total number of times an error occurred scraping a NetAPP.",
 		}, []string{"collector"}),
 		error: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
+			Namespace: variables.Namespace,
 			Subsystem: exporter,
 			Name:      "last_scrape_error",
 			Help:      "Whether the last scrape of metrics from NetAPP resulted in an error (1 for error, 0 for success).",
 		}),
 
 		netappUp: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
+			Namespace: variables.Namespace,
 			Name:      "up",
 			Help:      "Whether the NetAPP server is up.",
 		}),
+
+		deviceConfig: deviceConfig,
 	}
 }
 
@@ -128,7 +130,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 	if clusterIdentity, ok := GetClusterIdentity(e.netappClient); ok {
 
 		e.netappUp.Set(1)
-		BaseLabelValues[1] = clusterIdentity["clusterName"]
+		variables.BaseLabelValues[1] = clusterIdentity["clusterName"]
 
 	} else {
 		e.netappUp.Set(0)
@@ -141,6 +143,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		wg.Add(1)
 		go func(scraper Scraper) {
 			defer wg.Done()
+			log.Debug("start scraping" + scraper.Name())
 			label := "collect." + scraper.Name()
 			scrapeTime := time.Now()
 			if err := scraper.Scrape(e.netappClient, ch); err != nil {

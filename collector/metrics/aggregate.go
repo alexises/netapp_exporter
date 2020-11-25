@@ -1,8 +1,10 @@
-package collector
+package metrics
 
 import (
 	"log"
 
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -14,37 +16,37 @@ const (
 
 // Metric descriptors.
 var (
-	aggrLabels       = append(BaseLabelNames, "aggr", "node")
+	aggrLabels       = append(variables.BaseLabelNames, "aggr", "node")
 	aggrSizeUsedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "size_used"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "size_used"),
 		"Used size of aggr.",
 		aggrLabels, nil)
 	aggrSizeTotalDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "size_total"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "size_total"),
 		"Total size of aggr.",
 		aggrLabels, nil)
 	aggrSizeAvailableDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "size_available"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "size_available"),
 		"Available size of aggr.",
 		aggrLabels, nil)
 	aggrTotalReservedSpaceDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "total_reserved_space"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "total_reserved_space"),
 		"Total Reserved Space  of aggr.",
 		aggrLabels, nil)
 	aggrPercentUsedCapacityDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "percent_used_capacity"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "percent_used_capacity"),
 		"Percent Used Capacity of aggr.",
 		aggrLabels, nil)
 	aggrPhysicalUsedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "physical_used"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "physical_used"),
 		"Physical Used size of aggr.",
 		aggrLabels, nil)
 	aggrPhysicalUsedPercentDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "physical_used_percent"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "physical_used_percent"),
 		"Physical Used Percent of aggr.",
 		aggrLabels, nil)
 	aggrSnapSizeTotalDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, AggrSubsystem, "snap_size_total"),
+		prometheus.BuildFQName(variables.Namespace, AggrSubsystem, "snap_size_total"),
 		"Snap Size Total of aggr.",
 		aggrLabels, nil)
 )
@@ -88,18 +90,18 @@ type AggregateSpace struct {
 func (ScrapeAggr) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
 
 	for _, AggrInfo := range GetAggrData(netappClient) {
-		aggrLabelValues := append(BaseLabelValues, AggrInfo.Name, AggrInfo.OwnerName)
+		aggrLabelValues := append(variables.BaseLabelValues, AggrInfo.Name, AggrInfo.OwnerName)
 		ch <- prometheus.MustNewConstMetric(aggrSizeUsedDesc, prometheus.GaugeValue, float64(AggrInfo.SizeUsed), aggrLabelValues...)
 		ch <- prometheus.MustNewConstMetric(aggrSizeTotalDesc, prometheus.GaugeValue, float64(AggrInfo.SizeTotal), aggrLabelValues...)
 		ch <- prometheus.MustNewConstMetric(aggrSizeAvailableDesc, prometheus.GaugeValue, float64(AggrInfo.SizeAvailable), aggrLabelValues...)
 		ch <- prometheus.MustNewConstMetric(aggrTotalReservedSpaceDesc, prometheus.GaugeValue, float64(AggrInfo.TotalReservedSpace), aggrLabelValues...)
 
-		if PercentUsedCapacity, ok := parseStatus(AggrInfo.PercentUsedCapacity); ok {
+		if PercentUsedCapacity, ok := utils.ParseStatus(AggrInfo.PercentUsedCapacity); ok {
 			ch <- prometheus.MustNewConstMetric(aggrPercentUsedCapacityDesc, prometheus.GaugeValue, PercentUsedCapacity, aggrLabelValues...)
 		}
 		ch <- prometheus.MustNewConstMetric(aggrPhysicalUsedDesc, prometheus.GaugeValue, float64(AggrInfo.PhysicalUsed), aggrLabelValues...)
 		ch <- prometheus.MustNewConstMetric(aggrPhysicalUsedPercentDesc, prometheus.GaugeValue, float64(AggrInfo.PhysicalUsedPercent), aggrLabelValues...)
-		if SnapSizeTotal, ok := parseStatus(AggrInfo.SnapSizeTotal); ok {
+		if SnapSizeTotal, ok := utils.ParseStatus(AggrInfo.SnapSizeTotal); ok {
 			ch <- prometheus.MustNewConstMetric(aggrSnapSizeTotalDesc, prometheus.GaugeValue, SnapSizeTotal, aggrLabelValues...)
 		}
 	}

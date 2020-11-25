@@ -1,8 +1,10 @@
-package collector
+package metrics
 
 import (
 	"log"
 
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
+        "github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -14,18 +16,18 @@ const (
 
 // Metric descriptors.
 var (
-	snapshotLabels = append(BaseLabelNames, "snapshot", "volume", "vserver")
+	snapshotLabels = append(variables.BaseLabelNames, "snapshot", "volume", "vserver")
 
 	snapshotTotalSizeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SnapshotSubsystem, "total_size"),
+		prometheus.BuildFQName(variables.Namespace, SnapshotSubsystem, "total_size"),
 		"Size of the snapshot.",
 		snapshotLabels, nil)
 	snapshotAdminStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SnapshotSubsystem, "state"),
+		prometheus.BuildFQName(variables.Namespace, SnapshotSubsystem, "state"),
 		"The state of  the snapshot.",
 		snapshotLabels, nil)
 	snapshotBusyDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SnapshotSubsystem, "is_busy"),
+		prometheus.BuildFQName(variables.Namespace, SnapshotSubsystem, "is_busy"),
 		"The busy state of  the snapshot.",
 		snapshotLabels, nil)
 )
@@ -56,10 +58,10 @@ type Snapshot struct {
 func (ScrapeSnapshot) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
 
 	for _, SnapshotInfo := range GetSnapshotData(netappClient) {
-		snapshotLabelValues := append(BaseLabelValues, SnapshotInfo.Name, SnapshotInfo.Volume, SnapshotInfo.Vserver)
+		snapshotLabelValues := append(variables.BaseLabelValues, SnapshotInfo.Name, SnapshotInfo.Volume, SnapshotInfo.Vserver)
 		ch <- prometheus.MustNewConstMetric(snapshotTotalSizeDesc, prometheus.GaugeValue, float64(SnapshotInfo.Total), snapshotLabelValues...)
-		ch <- prometheus.MustNewConstMetric(snapshotBusyDesc, prometheus.GaugeValue, boolToFloat64(SnapshotInfo.Busy), snapshotLabelValues...)
-		if value, ok := parseStatus(SnapshotInfo.State); ok {
+		ch <- prometheus.MustNewConstMetric(snapshotBusyDesc, prometheus.GaugeValue, utils.BoolToFloat64(SnapshotInfo.Busy), snapshotLabelValues...)
+		if value, ok := utils.ParseStatus(SnapshotInfo.State); ok {
 			ch <- prometheus.MustNewConstMetric(snapshotAdminStateDesc, prometheus.GaugeValue, value, snapshotLabelValues...)
 		}
 	}

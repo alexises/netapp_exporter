@@ -1,10 +1,12 @@
-package collector
+package perf
 
 import (
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -14,35 +16,38 @@ const (
 	PerfSubsystem = "perf"
 )
 
-// Metric descriptors.
-var (
-	objects = []string{"system", "system:node", "nfsv3","nfsv3:node","lif", "lun", "aggregate", "disk", "workload", "processor", "processor:node", "volume:node", "volume:vserver"}
-	// we can get all objects via connect to netapp,  set advanced, then issue command statistics catalog object show
-)
-
 // Scrapesystem collects system Perf info
-type ScrapePerf struct{}
+type ScrapePerf struct{
+	PerformanceObj []string
+}
+
+// Constructor to set the list of performence metric to get
+func New(performanceObj []string) *ScrapePerf {
+	return &ScrapePerf {
+		PerformanceObj: performanceObj,
+	}
+}
 
 // Name of the Scraper. Should be unique.
-func (ScrapePerf) Name() string {
+func (sp *ScrapePerf) Name() string {
 	return PerfSubsystem
 }
 
 // Help describes the role of the Scraper.
-func (ScrapePerf) Help() string {
+func (sp *ScrapePerf) Help() string {
 	return "Collect Netapp Perf info;"
 }
 
 // Scrape collects data from  netapp system and Perf info
-func (ScrapePerf) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
-	for _, object := range objects {
+func (sp *ScrapePerf) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
+	for _, object := range sp.PerformanceObj {
 		for _, perfInstanceData := range GetPerfObjectInstanceInfo(netappClient, object) {
 
 			var labelName []string
 			var labelValue []string
 
-			labelName = append(BaseLabelNames, labelName...)
-			labelValue = append(BaseLabelValues, labelValue...)
+			labelName = append(variables.BaseLabelNames, labelName...)
+			labelValue = append(variables.BaseLabelValues, labelValue...)
 
 			var metricNamePrefix string
 //			var metricNameSuffix string
@@ -82,7 +87,7 @@ func (ScrapePerf) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metri
 				} else if len(perfCounterData.Value) == 0 { // this set the value to 0 when the value is empty
 					metricMap[perfCounterData.Name] = 0
 				} else {
-					if value, ok := parseStatus(perfCounterData.Value); ok {
+					if value, ok := utils.ParseStatus(perfCounterData.Value); ok {
 						metricMap[perfCounterData.Name] = value
 					}
 				}
@@ -94,7 +99,7 @@ func (ScrapePerf) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metri
 				metricName := fmt.Sprintf("%s%s", metricNamePrefix, metricName)
 				metricHelp := fmt.Sprintf("Perf %s %s", labelName[0], metricName)
 				desc := prometheus.NewDesc(
-					prometheus.BuildFQName(namespace, PerfSubsystem, metricName),
+					prometheus.BuildFQName(variables.Namespace, PerfSubsystem, metricName),
 					metricHelp,
 					labelName, nil)
 				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, metricValue, labelValue...)

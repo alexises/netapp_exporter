@@ -1,7 +1,10 @@
-package collector
+package metrics
 
 import (
-		"log"
+	"log"
+
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -13,17 +16,17 @@ const (
 
 // Metric descriptors.
 var (
-	vserverLabels                         = append(BaseLabelNames, "vserver", "type")
+	vserverLabels                         = append(variables.BaseLabelNames, "vserver", "type")
 	VServerVolumeDeleteRetentionHoursDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, VserverSubsystem, "volume_delete_retention_hours"),
+		prometheus.BuildFQName(variables.Namespace, VserverSubsystem, "volume_delete_retention_hours"),
 		"Volume Delete Retention Hours of the vserver.",
 		vserverLabels, nil)
 	VServerAdminStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, VserverSubsystem, "state"),
+		prometheus.BuildFQName(variables.Namespace, VserverSubsystem, "state"),
 		"Admin State of the vserver,1(running), 0(stopped), 2(starting),3(stopping), 4(initializing), or 5(deleting).",
 		vserverLabels, nil)
 	VServerOperationalStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, VserverSubsystem, "operational_state"),
+		prometheus.BuildFQName(variables.Namespace, VserverSubsystem, "operational_state"),
 		"Operational State of the vserver, 1(running), 0(stopped).",
 		vserverLabels, nil)
 )
@@ -53,15 +56,15 @@ type VServer struct {
 func (ScrapeVserver) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
 
 	for _, VserverInfo := range GetVserverData(netappClient) {
-		vserverLabelValues := append(BaseLabelValues, VserverInfo.VserverName, VserverInfo.VserverType)
+		vserverLabelValues := append(variables.BaseLabelValues, VserverInfo.VserverName, VserverInfo.VserverType)
 		ch <- prometheus.MustNewConstMetric(VServerVolumeDeleteRetentionHoursDesc, prometheus.GaugeValue, float64(VserverInfo.VolumeDeleteRetentionHours), vserverLabelValues...)
 		if len(VserverInfo.State) > 0 {
-			if stateVal, ok := parseStatus(VserverInfo.State); ok {
+			if stateVal, ok := utils.ParseStatus(VserverInfo.State); ok {
 				ch <- prometheus.MustNewConstMetric(VServerAdminStateDesc, prometheus.GaugeValue, stateVal, vserverLabelValues...)
 			}
 		}
 		if len(VserverInfo.OperationalState) > 0 {
-			if opsStateVal, ok := parseStatus(VserverInfo.OperationalState); ok {
+			if opsStateVal, ok := utils.ParseStatus(VserverInfo.OperationalState); ok {
 				ch <- prometheus.MustNewConstMetric(VServerOperationalStateDesc, prometheus.GaugeValue, opsStateVal, vserverLabelValues...)
 			}
 		}

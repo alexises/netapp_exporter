@@ -1,7 +1,10 @@
-package collector
+package metrics
 
 import (
 	"log"
+
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -13,21 +16,21 @@ const (
 
 // Metric descriptors.
 var (
-	systemLabels         = append(BaseLabelNames, "node", "location")
+	systemLabels         = append(variables.BaseLabelNames, "node", "location")
 	systemNodeUptimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SystemSubsystem, "uptime"),
+		prometheus.BuildFQName(variables.Namespace, SystemSubsystem, "uptime"),
 		"uptime of the node.",
 		systemLabels, nil)
 	systemNodeFailedFanCountDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SystemSubsystem, "failed_fan_count"),
+		prometheus.BuildFQName(variables.Namespace, SystemSubsystem, "failed_fan_count"),
 		"Failed Fan Count of the node.",
 		systemLabels, nil)
 	systemNodeFailedPowerSupplyCountDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SystemSubsystem, "failed_powersupply_count"),
+		prometheus.BuildFQName(variables.Namespace, SystemSubsystem, "failed_powersupply_count"),
 		"Failed PowerSupply Count of the node.",
 		systemLabels, nil)
 	systemNodeOverTemperatureDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, SystemSubsystem, "over_temperature"),
+		prometheus.BuildFQName(variables.Namespace, SystemSubsystem, "over_temperature"),
 		"Over Temperature of the node.",
 		systemLabels, nil)
 )
@@ -61,13 +64,13 @@ type Node struct {
 func (ScrapeSystem) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
 
 	for _, NodeInfo := range GetNodeData(netappClient) {
-		systemLabelValues := append(BaseLabelValues, NodeInfo.Name, NodeInfo.Location)
-		if uptime, ok := parseStatus(NodeInfo.Uptime); ok {
+		systemLabelValues := append(variables.BaseLabelValues, NodeInfo.Name, NodeInfo.Location)
+		if uptime, ok := utils.ParseStatus(NodeInfo.Uptime); ok {
 			ch <- prometheus.MustNewConstMetric(systemNodeUptimeDesc, prometheus.GaugeValue, uptime, systemLabelValues...)
 		}
 		ch <- prometheus.MustNewConstMetric(systemNodeFailedFanCountDesc, prometheus.GaugeValue, float64(NodeInfo.EnvFailedFanCount), systemLabelValues...)
 		ch <- prometheus.MustNewConstMetric(systemNodeFailedPowerSupplyCountDesc, prometheus.GaugeValue, float64(NodeInfo.EnvFailedPowerSupplyCount), systemLabelValues...)
-		ch <- prometheus.MustNewConstMetric(systemNodeOverTemperatureDesc, prometheus.GaugeValue, boolToFloat64(NodeInfo.EnvOverTemperature), systemLabelValues...)
+		ch <- prometheus.MustNewConstMetric(systemNodeOverTemperatureDesc, prometheus.GaugeValue, utils.BoolToFloat64(NodeInfo.EnvOverTemperature), systemLabelValues...)
 
 	}
 	return nil

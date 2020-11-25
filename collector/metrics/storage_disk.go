@@ -1,7 +1,10 @@
-package collector
+package metrics
 
 import (
 	"log"
+
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -13,9 +16,9 @@ const (
 
 // Metric descriptors.
 var (
-	storageDiskLabels       = append(BaseLabelNames, "disk","node", "type","model")
+	storageDiskLabels       = append(variables.BaseLabelNames, "disk","node", "type","model")
 	storageDiskHealthStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, StorageDiskSubsystem, "is_failed"),
+		prometheus.BuildFQName(variables.Namespace, StorageDiskSubsystem, "is_failed"),
 		"if this disk is failed.",
 		storageDiskLabels, nil)
 )
@@ -46,8 +49,8 @@ type StorageDisk struct {
 func (ScrapeStorageDisk) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
 
 	for _, storageDiskInfo := range GetStorageDiskData(netappClient) {
-		storageDiskLabelValues := append(BaseLabelValues, storageDiskInfo.DiskName,storageDiskInfo.HomeNodeName,storageDiskInfo.DiskType,storageDiskInfo.Model)
-		ch <- prometheus.MustNewConstMetric(storageDiskHealthStateDesc, prometheus.GaugeValue, boolToFloat64(*storageDiskInfo.IsFailed), storageDiskLabelValues...)
+		storageDiskLabelValues := append(variables.BaseLabelValues, storageDiskInfo.DiskName,storageDiskInfo.HomeNodeName,storageDiskInfo.DiskType,storageDiskInfo.Model)
+		ch <- prometheus.MustNewConstMetric(storageDiskHealthStateDesc, prometheus.GaugeValue, utils.BoolToFloat64(*storageDiskInfo.IsFailed), storageDiskLabelValues...)
 	
 	}
 

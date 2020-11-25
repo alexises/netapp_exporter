@@ -1,4 +1,4 @@
-package collector
+package utils
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,7 +14,7 @@ const (
 )
 
 
-func newDesc(subsystem, name, help string) *prometheus.Desc {
+func NewDesc(subsystem, name, help string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, name),
 		help, nil, nil,
@@ -23,7 +23,7 @@ func newDesc(subsystem, name, help string) *prometheus.Desc {
 
 
 
-func parseStatus(data string) (float64, bool) {
+func ParseStatus(data string) (float64, bool) {
 
 	// vserver state
 	if bytes.Equal([]byte(data), []byte("running")) {
@@ -62,19 +62,17 @@ func parseStatus(data string) (float64, bool) {
 	return value, err == nil
 }
 
-func stringToFloat64Slice(data []string) ([]float64, bool ) {
-  var numbers []float64
+func StringToFloat64Slice(data []string) ([]float64, bool ) {
+	var numbers []float64
 	for _, arg := range data {
 		if n, err := strconv.ParseFloat(arg, 64); err == nil {
 				numbers = append(numbers, n)
 		}
-		
 	}
-	return numbers, true 
-
+	return numbers, true
 }
 
-func float64SliceSum(data []float64) float64 {
+func Float64SliceSum(data []float64) float64 {
   var sum float64
 	for _, value := range data {
 		sum += value
@@ -84,7 +82,7 @@ return sum
 
 
 
-func float64SliceToBucket(data []float64) map[float64]uint64 {
+func Float64SliceToBucket(data []float64) map[float64]uint64 {
 
   var bucket map[float64]uint64
 	for index, value := range data {
@@ -93,7 +91,7 @@ func float64SliceToBucket(data []float64) map[float64]uint64 {
 	return bucket 
 }
 
-func boolToFloat64 (data bool) float64 {
+func BoolToFloat64 (data bool) float64 {
 
 	if data {
 		return float64(1)

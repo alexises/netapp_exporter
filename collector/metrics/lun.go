@@ -1,8 +1,10 @@
-package collector
+package metrics
 
 import (
 	"log"
 
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
+	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -14,25 +16,25 @@ const (
 
 // Metric descriptors.
 var (
-	lunLabels   = append(BaseLabelNames, "volume", "node", "vserver")
+	lunLabels   = append(variables.BaseLabelNames, "volume", "node", "vserver")
 	lunSizeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, LunSubsystem, "size"),
+		prometheus.BuildFQName(variables.Namespace, LunSubsystem, "size"),
 		"Size of the lun.",
 		lunLabels, nil)
 	lunSizeUsedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, LunSubsystem, "size_used"),
+		prometheus.BuildFQName(variables.Namespace, LunSubsystem, "size_used"),
 		"Size Used of the lun.",
 		lunLabels, nil)
 	lunStagingStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, LunSubsystem, "is_staging"),
+		prometheus.BuildFQName(variables.Namespace, LunSubsystem, "is_staging"),
 		"whether the lun is  staging state.",
 		lunLabels, nil)
 	lunOnlineStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, LunSubsystem, "is_online"),
+		prometheus.BuildFQName(variables.Namespace, LunSubsystem, "is_online"),
 		"whether the lun is  online state.",
 		lunLabels, nil)
 	lunAdminStateDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, LunSubsystem, "state"),
+		prometheus.BuildFQName(variables.Namespace, LunSubsystem, "state"),
 		"the state of  the lun.",
 		lunLabels, nil)
 )
@@ -65,12 +67,12 @@ type Lun struct {
 func (ScrapeLun) Scrape(netappClient *netapp.Client, ch chan<- prometheus.Metric) error {
 
 	for _, LunInfo := range GetLunData(netappClient) {
-		lunLabelValues := append(BaseLabelValues, LunInfo.Volume, LunInfo.Node, LunInfo.Vserver)
+		lunLabelValues := append(variables.BaseLabelValues, LunInfo.Volume, LunInfo.Node, LunInfo.Vserver)
 		ch <- prometheus.MustNewConstMetric(lunSizeDesc, prometheus.GaugeValue, float64(LunInfo.Size), lunLabelValues...)
 		ch <- prometheus.MustNewConstMetric(lunSizeUsedDesc, prometheus.GaugeValue, float64(LunInfo.SizeUsed), lunLabelValues...)
-		ch <- prometheus.MustNewConstMetric(lunStagingStateDesc, prometheus.GaugeValue, boolToFloat64(LunInfo.Staging), lunLabelValues...)
-		ch <- prometheus.MustNewConstMetric(lunOnlineStateDesc, prometheus.GaugeValue, boolToFloat64(LunInfo.Online), lunLabelValues...)
-		if value, ok := parseStatus(LunInfo.State); ok {
+		ch <- prometheus.MustNewConstMetric(lunStagingStateDesc, prometheus.GaugeValue, utils.BoolToFloat64(LunInfo.Staging), lunLabelValues...)
+		ch <- prometheus.MustNewConstMetric(lunOnlineStateDesc, prometheus.GaugeValue, utils.BoolToFloat64(LunInfo.Online), lunLabelValues...)
+		if value, ok := utils.ParseStatus(LunInfo.State); ok {
 			ch <- prometheus.MustNewConstMetric(lunAdminStateDesc, prometheus.GaugeValue, value, lunLabelValues...)
 		}
 	}

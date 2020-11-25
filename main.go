@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/jenningsloy318/netapp_exporter/collector"
+	"github.com/jenningsloy318/netapp_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
@@ -19,8 +20,8 @@ var (
 		"web.listen-address",
 		"Address to listen on for web interface and telemetry.",
 	).Default(":9609").String()
-	sc = &SafeConfig{
-		C: &Config{},
+	sc = &config.SafeConfig{
+		C: &config.Config{},
 	}
 	reloadCh chan chan error
 )
@@ -37,15 +38,15 @@ func metricsHandler() http.HandlerFunc {
 		}
 		log.Debugf("Scraping target '%s'", target)
 
-		var deviceConfig *DeviceConfig
+		var deviceConfig *config.DeviceConfig
 		var err error
 		if deviceConfig, err = sc.DeviceConfigForTarget(target); err != nil {
 			log.Errorf("Error getting credentialfor target %s, error: %s", target, err)
 			return
 		}
 
-		groupName, netappClient := newNetappClient(target, deviceConfig)
-		collector := collector.New(groupName, netappClient)
+		groupName, netappClient := config.NewNetappClient(target, deviceConfig)
+		collector := collector.New(groupName, netappClient, deviceConfig)
 		registry.MustRegister(collector)
 
 		gatherers := prometheus.Gatherers{

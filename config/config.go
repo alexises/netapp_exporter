@@ -1,9 +1,10 @@
-package main
+package config
 
 import (
 	"fmt"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/common/log"
+	"github.com/creasty/defaults"
 	yaml "gopkg.in/yaml.v2"
 	"io/ioutil"
 	"sync"
@@ -20,10 +21,11 @@ type SafeConfig struct {
 }
 
 type DeviceConfig struct {
-	Group    string `yaml:"group"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Debug    bool   `yaml:"debug"`
+	Group      string   `yaml:"group"`
+	Username   string   `yaml:"username"`
+	Password   string   `yaml:"password"`
+	Debug      bool     `yaml:"debug"`
+	PerfData []string   `yaml:"perfdata" default:"[\"system\", \"system:node\", \"nfsv3\", \"nfsv3:node\", \"lif\", \"lun\", \"aggregate\", \"disk\", \"workload\", \"processor\", \"processor:node\", \"volume:node\", \"volume:vserver\", \"volume\"]"`
 }
 
 func (sc *SafeConfig) ReloadConfig(configFile string) error {
@@ -51,11 +53,13 @@ func (sc *SafeConfig) DeviceConfigForTarget(target string) (*DeviceConfig, error
 	sc.Lock()
 	defer sc.Unlock()
 	if deviceConfig, ok := sc.C.Devices[target]; ok {
+                defaults.Set(&deviceConfig)
 		return &DeviceConfig{
 			Group:    deviceConfig.Group,
 			Username: deviceConfig.Username,
 			Password: deviceConfig.Password,
 			Debug:    deviceConfig.Debug,
+                        PerfData: deviceConfig.PerfData,
 		}, nil
 	}
 	if deviceConfig, ok := sc.C.Devices["default"]; ok {
@@ -64,12 +68,13 @@ func (sc *SafeConfig) DeviceConfigForTarget(target string) (*DeviceConfig, error
 			Username: deviceConfig.Username,
 			Password: deviceConfig.Password,
 			Debug:    deviceConfig.Debug,
+                        PerfData: deviceConfig.PerfData,
 		}, nil
 	}
 	return &DeviceConfig{}, fmt.Errorf("no credentials found for target %s", target)
 }
 
-func newNetappClient(host string, deviceConfig *DeviceConfig) (string, *netapp.Client) {
+func NewNetappClient(host string, deviceConfig *DeviceConfig) (string, *netapp.Client) {
 
 	_url := "https://%s/servlets/netapp.servlets.admin.XMLrequest_filer"
 	url := fmt.Sprintf(_url, host)
