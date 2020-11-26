@@ -53,7 +53,7 @@ func New(Groupname string, netappClient *netapp.Client, deviceConfig *config.Dev
 	variables.BaseLabelValues[0] = Groupname
 	return &Exporter{
 		netappClient: netappClient,
-		scrapers:     append(scrapers, perf.New(deviceConfig.PerfData)),
+		scrapers:     append(scrapers, perf.New(deviceConfig.PerfData, &deviceConfig.Filter)),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: variables.Namespace,
 			Subsystem: exporter,

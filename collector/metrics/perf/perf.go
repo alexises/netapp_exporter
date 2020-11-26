@@ -7,6 +7,7 @@ import (
 
 	"github.com/jenningsloy318/netapp_exporter/collector/metrics/utils"
 	"github.com/jenningsloy318/netapp_exporter/collector/metrics/variables"
+	"github.com/jenningsloy318/netapp_exporter/config"
 	"github.com/pepabo/go-netapp/netapp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -19,12 +20,14 @@ const (
 // Scrapesystem collects system Perf info
 type ScrapePerf struct{
 	PerformanceObj []string
+	Filter *config.MetricFilterConfig
 }
 
 // Constructor to set the list of performence metric to get
-func New(performanceObj []string) *ScrapePerf {
+func New(performanceObj []string, filter *config.MetricFilterConfig) *ScrapePerf {
 	return &ScrapePerf {
 		PerformanceObj: performanceObj,
+		Filter: filter,
 	}
 }
 
@@ -98,6 +101,10 @@ func (sp *ScrapePerf) Scrape(netappClient *netapp.Client, ch chan<- prometheus.M
 //				metricName := fmt.Sprintf("%s%s%s", metricNamePrefix, metricName, metricNameSuffix)
 				metricName := fmt.Sprintf("%s%s", metricNamePrefix, metricName)
 				metricHelp := fmt.Sprintf("Perf %s %s", labelName[0], metricName)
+				//and only here, when we get the real metric name we can apply metric filtering
+				if !sp.Filter.MetricValidate(metricName) {
+					continue
+				}
 				desc := prometheus.NewDesc(
 					prometheus.BuildFQName(variables.Namespace, PerfSubsystem, metricName),
 					metricHelp,
