@@ -20,11 +20,11 @@ const (
 // Scrapesystem collects system Perf info
 type ScrapePerf struct{
 	PerformanceObj []string
-	Filter *config.MetricFilterConfig
+	Filter *config.MetricFilterCompiled
 }
 
 // Constructor to set the list of performence metric to get
-func New(performanceObj []string, filter *config.MetricFilterConfig) *ScrapePerf {
+func New(performanceObj []string, filter *config.MetricFilterCompiled) *ScrapePerf {
 	return &ScrapePerf {
 		PerformanceObj: performanceObj,
 		Filter: filter,

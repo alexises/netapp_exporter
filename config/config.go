@@ -28,6 +28,7 @@ type DeviceConfig struct {
 	Debug      bool               `yaml:"debug"`
 	PerfData []string             `yaml:"perfdata" default:"[\"system\", \"system:node\", \"nfsv3\", \"nfsv3:node\", \"lif\", \"lun\", \"aggregate\", \"disk\", \"workload\", \"processor\", \"processor:node\", \"volume:node\", \"volume:vserver\", \"volume\"]"`
 	Filter     MetricFilterConfig `yaml:"filter"`
+	FilterCompiled *MetricFilterCompiled
 }
 
 type MetricFilterConfig struct {
@@ -35,16 +36,38 @@ type MetricFilterConfig struct {
 	Exclude  []string            `yaml:"exclude" default:"[]"`
 }
 
+type MetricFilterCompiled struct {
+	Include  []*regexp.Regexp
+	Exclude  []*regexp.Regexp
+}
+
+func CompileFilter(metric *MetricFilterConfig) *MetricFilterCompiled {
+	include := make([]*regexp.Regexp, len(metric.Include))
+	exclude := make([]*regexp.Regexp, len(metric.Exclude))
+
+	for i, str := range metric.Include {
+		include[i], _ = regexp.Compile(str)
+	}
+	for i, str := range metric.Exclude {
+		exclude[i], _ = regexp.Compile(str)
+	}
+
+	return &MetricFilterCompiled{
+		Include: include,
+		Exclude: exclude,
+	}
+}
+
+
 // validate a metric against the include and exclude field
 // return true if correspondig should be exposed
-func (mf *MetricFilterConfig) MetricValidate(metricName string) bool {
+func (mf *MetricFilterCompiled) MetricValidate(metricName string) bool {
 	isIncluded := false
 	if len(mf.Include) == 0 {
 		isIncluded = true
 	} else {
 		for _, expr := range mf.Include {
-			match, _ := regexp.MatchString(expr, metricName);
-			if match {
+			if expr.MatchString(metricName) {
 				isIncluded = true
 				break
 			}
@@ -58,8 +81,7 @@ func (mf *MetricFilterConfig) MetricValidate(metricName string) bool {
 		return true
 	}
 	for _, expr := range mf.Exclude {
-		match, _ := regexp.MatchString(expr, metricName)
-		if match {
+		if expr.MatchString(metricName)  {
 			return false
 		}
 	}
@@ -99,6 +121,7 @@ func (sc *SafeConfig) DeviceConfigForTarget(target string) (*DeviceConfig, error
 			Debug:    deviceConfig.Debug,
                         PerfData: deviceConfig.PerfData,
 			Filter:   deviceConfig.Filter,
+			FilterCompiled: CompileFilter(&deviceConfig.Filter),
 		}, nil
 	}
 	if deviceConfig, ok := sc.C.Devices["default"]; ok {
@@ -109,6 +132,7 @@ func (sc *SafeConfig) DeviceConfigForTarget(target string) (*DeviceConfig, error
 			Debug:    deviceConfig.Debug,
                         PerfData: deviceConfig.PerfData,
 			Filter:   deviceConfig.Filter,
+			FilterCompiled: CompileFilter(&deviceConfig.Filter),
 		}, nil
 	}
 	return &DeviceConfig{}, fmt.Errorf("no credentials found for target %s", target)
